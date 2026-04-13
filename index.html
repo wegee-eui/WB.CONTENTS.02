@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>나만의 편지 만들기 - 모바일 스크롤 지원</title>
+    <title>TO_YOU</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -336,7 +336,7 @@
             try {
                 const finalCanvas = await createExclusionCanvas(); 
                 const link = document.createElement('a');
-                link.download = 'to_you.png';
+                link.download = 'TO_YOU.png';
                 link.href = finalCanvas.toDataURL('image/png');
                 link.click();
             } catch (error) {
@@ -353,7 +353,7 @@
                 finalCanvas.toBlob(async (blob) => {
                     if (!blob) return alert("이미지 생성에 실패했습니다.");
 
-                    const file = new File([blob], 'my_custom_letter.png', { type: 'image/png' });
+                    const file = new File([blob], 'TO_YOU.png', { type: 'image/png' });
 
                     if (navigator.canShare && navigator.canShare({ files: [file] })) {
                         try {
