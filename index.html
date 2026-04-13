@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>나만의 편지 만들기 - 글씨만 반전 저장</title>
+    <title>나만의 편지 만들기 - 모바일 스크롤 지원</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,8 +14,9 @@
         html, body {
             margin: 0;
             padding: 0;
+            /* 기본 PC 환경: 스크롤 없이 화면에 꽉 차게 고정 */
             height: 100vh;
-            overflow: hidden;
+            overflow: hidden; 
             font-family: 'Baskerville', 'Libre Baskerville', 'Noto Serif KR', serif;
             display: flex;
             flex-direction: column;
@@ -35,7 +36,7 @@
 
         #letter-container {
             position: relative;
-            height: 100vh; 
+            height: 60vh; 
             aspect-ratio: 10 / 18.5; 
             background-color: white;
             border: 1px solid #ccc;
@@ -107,7 +108,7 @@
         .template-selector {
             width: 100%;
             background-color: white;
-            padding: 20px 0; 
+            padding: 40px 0; 
             display: flex;
             justify-content: center; 
             align-items: center;
@@ -117,7 +118,10 @@
             perspective: 1000px; 
             overflow: hidden; 
             cursor: grab;
-            touch-action: none; 
+            
+            /* 핵심 수정: 좌우(x) 터치 드래그는 자바스크립트가 처리하고, 
+               위아래(y) 터치 드래그는 브라우저 스크롤을 허용하게 만듭니다! */
+            touch-action: pan-y; 
         }
         
         .template-selector:active {
@@ -149,6 +153,37 @@
             border-color: #ff0000; 
             box-shadow: 0 5px 25px rgba(0,0,0,0.4); 
         }
+
+        /* =========================================================
+           핵심 수정: 모바일 환경(768px 이하)에서 세로 스크롤 허용
+           ========================================================= */
+        @media screen and (max-width: 768px) {
+            html, body {
+                /* 모바일에서는 화면 크기를 억지로 100vh로 고정하지 않고, 내용물 길이에 맞게 풉니다 */
+                height: auto; 
+                min-height: 100vh;
+                /* 세로 스크롤(위아래 드래그)을 허용합니다! */
+                overflow-y: auto; 
+                overflow-x: hidden;
+            }
+
+            .letter-workspace {
+                /* 편지 영역 위아래 여백을 주어 자연스럽게 스크롤되도록 설정 */
+                padding-top: 30px;
+                padding-bottom: 30px;
+            }
+            
+            #letter-container {
+                /* 모바일 기기 화면 비율에 맞게 편지지 세로 크기를 살짝 조절 */
+                height: 65vh; 
+            }
+            
+            .template-selector {
+                /* 갤러리 영역의 상하 여백을 살짝 줄여 화면 공간을 확보 */
+                padding: 30px 0;
+            }
+        }
+        /* ========================================================= */
     </style>
 </head>
 <body>
@@ -262,67 +297,46 @@
             });
         });
 
-        // =========================================================
-        // 핵심 버그 수정: 글씨에만 완벽하게 제외 효과를 입히는 합성 로직
-        // =========================================================
+        // 제외(Exclusion) 합성 저장 로직
         async function createExclusionCanvas() {
-            // 1단계: 텍스트를 숨기고 '배경 이미지'만 온전히 캡처합니다.
             letterText.style.display = 'none';
             const bgCanvas = await html2canvas(letterContainer, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
             letterText.style.display = 'block';
 
-            // 2단계: 배경 이미지를 숨깁니다.
             const originalBgDisplay = bgImage.style.display;
             bgImage.style.display = 'none';
             
-            // !!! 아주 중요한 수정 부분 !!!
-            // 컨테이너가 가지고 있던 하얀색 배경과 테두리를 완전히 투명하게 없애버립니다.
-            // 그래야 캡처본에 하얀 덩어리가 잡히지 않고 순수하게 글씨만 남습니다.
             const originalContainerBg = letterContainer.style.backgroundColor;
             const originalContainerBorder = letterContainer.style.border;
             letterContainer.style.backgroundColor = 'transparent';
             letterContainer.style.border = 'none';
-            
-            // 글씨의 제외 효과도 잠시 꺼서 하얀 글씨 그대로 캡처되게 합니다.
             letterText.style.mixBlendMode = 'normal';
             
-            // 완벽히 투명한 바탕(backgroundColor: null) 위에 텍스트만 캡처합니다.
             const textCanvas = await html2canvas(letterContainer, { scale: 2, useCORS: true, backgroundColor: null });
             
-            // 숨겨뒀던 배경색, 테두리, 효과를 모두 원래대로 복구합니다.
             bgImage.style.display = originalBgDisplay;
             letterContainer.style.backgroundColor = originalContainerBg;
             letterContainer.style.border = originalContainerBorder;
             letterText.style.mixBlendMode = 'exclusion';
 
-            // 3단계: 새 캔버스를 만들어서 배경과 텍스트(투명 바탕)를 '제외' 모드로 합성합니다.
             const finalCanvas = document.createElement('canvas');
             finalCanvas.width = bgCanvas.width;
             finalCanvas.height = bgCanvas.height;
             const ctx = finalCanvas.getContext('2d');
 
-            // 바닥에 온전한 배경 깔기
             ctx.drawImage(bgCanvas, 0, 0);
-            
-            // 붓(Brush)의 합성 모드를 '제외(Exclusion)'로 설정
             ctx.globalCompositeOperation = 'exclusion';
-            
-            // 그 위에 투명하게 따낸 텍스트 도장 찍기
-            // 이제 투명한 부분은 무시되고 오직 '글씨' 영역에만 반전 효과가 들어갑니다!
             ctx.drawImage(textCanvas, 0, 0);
 
             return finalCanvas;
         }
-        // =========================================================
 
-        // 저장 기능 실행
         saveBtn.addEventListener('click', async function() {
             letterText.blur();
             try {
                 const finalCanvas = await createExclusionCanvas(); 
-                
                 const link = document.createElement('a');
-                link.download = 'my_custom_letter.png';
+                link.download = 'to_you.png';
                 link.href = finalCanvas.toDataURL('image/png');
                 link.click();
             } catch (error) {
@@ -331,7 +345,6 @@
             }
         });
 
-        // 공유 기능 실행
         shareBtn.addEventListener('click', async function() {
             letterText.blur();
             try {
